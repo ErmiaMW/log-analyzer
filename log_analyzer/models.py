@@ -16,7 +16,7 @@ class LogEntry:
     user_agent: str
    
     
-@dataclass(slots=True)
+@dataclass()
 class AnalysisResult:
     total_lines: int
     total_requests: int

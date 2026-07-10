@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime
+import json
 
 from log_analyzer.models import AnalysisResult
 
@@ -253,3 +254,102 @@ def build_text_report(
         )
 
     return "\n".join(lines)
+
+def build_json_report(
+    result: AnalysisResult,
+    top_n: int = 10,
+    execution_time: float = 0.0,
+) -> str:
+
+    hourly_counts = _aggregate_by_hour(
+        result.hourly_requests
+    )
+
+    peak = _find_peak_hour(
+        result.hourly_requests
+    )
+
+    quiet = _find_quiet_hour(
+        result.hourly_requests
+    )
+
+    payload = {
+        "summary": {
+            "total_lines": result.total_lines,
+            "total_requests": result.total_requests,
+            "filtered_requests": (
+                result.filtered_requests
+            ),
+            "malformed_lines": (
+                result.malformed_lines
+            ),
+            "unique_ips": (
+                result.unique_ip_count
+            ),
+            "client_errors_4xx": (
+                result.client_error_count
+            ),
+            "server_errors_5xx": (
+                result.server_error_count
+            ),
+            "error_count": result.error_count,
+            "error_rate_percent": round(
+                result.error_rate,
+                2,
+            ),
+            "execution_time_seconds": round(
+                execution_time,
+                6,
+            ),
+        },
+        "top_endpoints": [
+            {
+                "endpoint": endpoint,
+                "requests": count,
+            }
+            for endpoint, count in _top_items(
+                result.endpoint_counts,
+                top_n,
+            )
+        ],
+        "top_ips": [
+            {
+                "ip": ip,
+                "requests": count,
+            }
+            for ip, count in _top_items(
+                result.ip_counts,
+                top_n,
+            )
+        ],
+        "hourly_traffic": {
+            f"{hour:02d}": hourly_counts[hour]
+            for hour in range(24)
+        },
+        "peak_hour": (
+            None
+            if peak is None
+            else {
+                "timestamp": (
+                    peak[0].isoformat()
+                ),
+                "requests": peak[1],
+            }
+        ),
+        "quiet_hour": (
+            None
+            if quiet is None
+            else {
+                "timestamp": (
+                    quiet[0].isoformat()
+                ),
+                "requests": quiet[1],
+            }
+        ),
+    }
+
+    return json.dumps(
+        payload,
+        indent=2,
+        ensure_ascii=False,
+    )

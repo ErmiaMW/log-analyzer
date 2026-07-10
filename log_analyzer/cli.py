@@ -7,6 +7,7 @@ from time import perf_counter
 from log_analyzer.analyzer import analyze_file
 from log_analyzer.reporter import (
     build_text_report,
+    build_json_report,
 )
 
 
@@ -84,7 +85,14 @@ def build_parser() -> argparse.ArgumentParser:
         dest="end_time",
         type=parse_iso_datetime,
         metavar="DATETIME",
-        help="Exclude requests from this datetime onward.",
+        help="Exclude requests  from this datetime onward.",
+    )
+    
+    parser.add_argument(
+    "--json",
+    dest="json_output",
+    action="store_true",
+    help="Build a JSON format of  report.",
     )
 
     return parser
@@ -123,4 +131,23 @@ def main(
 
     print(report)
 
+
+    if args.json_output:
+        json_report = build_json_report(
+            result,
+            top_n=args.top,
+            execution_time=execution_time,
+        )
+
+        output_path = Path("report.json")
+
+        output_path.write_text(
+            json_report + "\n",
+            encoding="utf-8",
+        )
+
+        print(
+            f"\nJSON report saved to: "
+            f"{output_path.resolve()}"
+        )
     return 0
