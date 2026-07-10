@@ -14,6 +14,7 @@ class LogAnalyzer:
         self._total_lines = 0
         self._total_requests = 0
         self._malformed_lines = 0
+        self._filtered_requests = 0
 
         self._unique_ips: set[str] = set()
 
@@ -53,6 +54,11 @@ class LogAnalyzer:
         self._total_lines += 1
         self._malformed_lines += 1
 
+    def add_filtered_request(self) -> None:
+
+        self._total_lines += 1
+        self._filtered_requests += 1
+
     def build_result(self) -> AnalysisResult:
 
         return AnalysisResult(
@@ -75,11 +81,37 @@ class LogAnalyzer:
             server_error_count=(
                 self._server_error_count
             ),
+            filtered_requests=(
+                self._filtered_requests
+            ),
         )
+
+
+def _is_in_time_range(
+    timestamp: datetime,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> bool:
+
+    if (
+        start_time is not None
+        and timestamp < start_time
+    ):
+        return False
+
+    if (
+        end_time is not None
+        and timestamp >= end_time
+    ):
+        return False
+
+    return True
 
 
 def analyze_lines(
     lines: Iterable[str],
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
 ) -> AnalysisResult:
 
     analyzer = LogAnalyzer()
@@ -91,12 +123,28 @@ def analyze_lines(
             analyzer.add_malformed_line()
             continue
 
+        if not _is_in_time_range(
+            entry.timestamp,
+            start_time,
+            end_time,
+        ):
+            analyzer.add_filtered_request()
+            continue
+
         analyzer.add_entry(entry)
 
     return analyzer.build_result()
 
 
-def analyze_file(path: Path) -> AnalysisResult:
+def analyze_file(
+    path: Path,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> AnalysisResult:
 
     with open_log_file(path) as log_file:
-        return analyze_lines(log_file)
+        return analyze_lines(
+            log_file,
+            start_time=start_time,
+            end_time=end_time,
+        )

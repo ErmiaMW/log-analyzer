@@ -1,8 +1,17 @@
 from pathlib import Path
 from typing import TextIO
+import gzip
 
 
 def open_log_file(path: Path) -> TextIO:
+    
+    if path.suffix.lower() == ".gz":
+        return gzip.open(
+            path,
+            mode="rt",
+            encoding="utf-8",
+            errors="replace",
+        )
 
     return path.open(
         mode="r",

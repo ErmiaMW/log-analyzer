@@ -126,7 +126,57 @@ class AnalyzeLinesTests(unittest.TestCase):
             result.error_rate,
             0.0,
         )
+    
+    def test_applies_time_range_filter(self) -> None:
+        lines = [
+            make_log_line(
+                ip="203.0.113.1",
+                timestamp="01/Jun/2026:09:00:00 +0000",
+                endpoint="/products",
+                status=200,
+            ),
+            make_log_line(
+                ip="203.0.113.2",
+                timestamp="01/Jun/2026:09:59:59 +0000",
+                endpoint="/health",
+                status=200,
+            ),
+            make_log_line(
+                ip="203.0.113.3",
+                timestamp="01/Jun/2026:10:00:00 +0000",
+                endpoint="/login",
+                status=200,
+            ),
+        ]
 
+        result = analyze_lines(
+            lines,
+            start_time=datetime(
+                2026,
+                6,
+                1,
+                9,
+                tzinfo=timezone.utc,
+            ),
+            end_time=datetime(
+                2026,
+                6,
+                1,
+                10,
+                tzinfo=timezone.utc,
+            ),
+        )
+
+        self.assertEqual(
+            result.total_requests,
+            2,
+        )
+
+        self.assertEqual(
+            result.filtered_requests,
+            1,
+        )
+            
 
 if __name__ == "__main__":
     unittest.main()

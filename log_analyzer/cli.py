@@ -1,5 +1,6 @@
 import argparse
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 
@@ -21,6 +22,36 @@ def positive_integer(value: str) -> int:
     return number
 
 
+def parse_iso_datetime(value: str) -> datetime:
+
+    normalized_value = (
+        f"{value[:-1]}+00:00"
+        if value.endswith("Z")
+        else value
+    )
+
+    try:
+        parsed_value = datetime.fromisoformat(
+            normalized_value
+        )
+
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "use ISO 8601 format, for example: "
+            "2026-06-01T09:00:00+00:00"
+        ) from error
+
+    if (
+        parsed_value.tzinfo is None
+        or parsed_value.utcoffset() is None
+    ):
+        raise argparse.ArgumentTypeError(
+            "datetime must include a timezone"
+        )
+
+    return parsed_value
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="log-analyzer",
@@ -37,10 +68,23 @@ def build_parser() -> argparse.ArgumentParser:
         type=positive_integer,
         default=10,
         metavar="N",
-        help=(
-            "Number of top endpoints and "
-            "IPs in report. Default: 10."
-        ),
+        help="Number of top results. Default: 10.",
+    )
+
+    parser.add_argument(
+        "--from",
+        dest="start_time",
+        type=parse_iso_datetime,
+        metavar="DATETIME",
+        help="Include requests from this datetime.",
+    )
+
+    parser.add_argument(
+        "--to",
+        dest="end_time",
+        type=parse_iso_datetime,
+        metavar="DATETIME",
+        help="Exclude requests from this datetime onward.",
     )
 
     return parser
@@ -52,15 +96,24 @@ def main(
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    start_time = perf_counter()
+    if (
+        args.start_time is not None
+        and args.end_time is not None
+        and args.start_time >= args.end_time
+    ):
+        parser.error(
+            "--from must be earlier than --to"
+        )
+
+    start = perf_counter()
 
     result = analyze_file(
-        args.log_file
+        args.log_file,
+        start_time=args.start_time,
+        end_time=args.end_time,
     )
 
-    execution_time = (
-        perf_counter() - start_time
-    )
+    execution_time = perf_counter() - start
 
     report = build_text_report(
         result,

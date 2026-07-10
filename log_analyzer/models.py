@@ -29,6 +29,8 @@ class AnalysisResult:
 
     client_error_count: int
     server_error_count: int
+    
+    filtered_requests: int = 0
 
     @property
     def error_count(self) -> int:

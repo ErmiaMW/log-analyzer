@@ -175,6 +175,10 @@ def build_text_report(
             f"{result.total_requests:>12,}"
         ),
         (
+        f"{'Filtered Requests:':<25}"
+        f"{result.filtered_requests:>12,}"
+        ),
+        (
             f"{'Malformed Lines:':<25}"
             f"{result.malformed_lines:>12,}"
         ),
