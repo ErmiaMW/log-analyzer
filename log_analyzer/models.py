@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from collections import Counter
 
@@ -31,7 +31,15 @@ class AnalysisResult:
     server_error_count: int
     
     filtered_requests: int = 0
+    
+    login_401_counts: Counter[str] = field(
+        default_factory=Counter
+    )
 
+    hourly_5xx_counts: Counter[datetime] = field(
+        default_factory=Counter
+    )
+    
     @property
     def error_count(self) -> int:
         return (

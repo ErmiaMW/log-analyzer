@@ -4,13 +4,7 @@ from datetime import datetime, timezone
 from log_analyzer.analyzer import analyze_lines
 
 
-def make_log_line(
-    *,
-    ip: str,
-    timestamp: str,
-    endpoint: str,
-    status: int,
-) -> str:
+def make_log_line(*,ip: str,timestamp: str,endpoint: str,status: int,) -> str:
     return (
         f'{ip} - - '
         f'[{timestamp}] '

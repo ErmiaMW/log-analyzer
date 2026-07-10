@@ -3,15 +3,12 @@ from datetime import datetime
 import json
 
 from log_analyzer.models import AnalysisResult
-
+from log_analyzer.detector import DetectionResult
 
 HISTOGRAM_WIDTH = 40
 
 
-def _top_items(
-    counts: Counter[str],
-    limit: int,
-) -> list[tuple[str, int]]:
+def _top_items(counts: Counter[str],limit: int,) -> list[tuple[str, int]]:
 
     return sorted(
         counts.items(),
@@ -19,16 +16,9 @@ def _top_items(
     )[:limit]
 
 
-def _build_ranked_section(
-    title: str,
-    counts: Counter[str],
-    limit: int,
-) -> list[str]:
+def _build_ranked_section(title: str,counts: Counter[str],limit: int,) -> list[str]:
 
-    lines = [
-        title,
-        "-" * len(title),
-    ]
+    lines = [title, "-" * len(title),]
 
     items = _top_items(counts, limit)
 
@@ -36,10 +26,7 @@ def _build_ranked_section(
         lines.append("No data.")
         return lines
 
-    for rank, (name, count) in enumerate(
-        items,
-        start=1,
-    ):
+    for rank, (name, count) in enumerate(items, start=1,):
         lines.append(
             f"{rank:>2}. {name:<35} {count:>10,}"
         )
@@ -48,35 +35,20 @@ def _build_ranked_section(
 
 
 def _format_hour(hour: datetime) -> str:
-    return hour.strftime(
-        "%Y-%m-%d %H:00 %z"
-    )
+    return hour.strftime("%Y-%m-%d %H:00 %z")
 
 
-def _aggregate_by_hour(
-    hourly_requests: Counter[datetime],
-) -> Counter[int]:
+def _aggregate_by_hour(hourly_requests: Counter[datetime],) -> Counter[int]:
 
-    hourly_counts: Counter[int] = Counter(
-        {
-            hour: 0
-            for hour in range(24)
-        }
-    )
+    hourly_counts: Counter[int] = Counter({hour: 0 for hour in range(24)})
 
-    for timestamp, count in (
-        hourly_requests.items()
-    ):
-        hourly_counts[
-            timestamp.hour
-        ] += count
+    for timestamp, count in (hourly_requests.items()):
+        hourly_counts[timestamp.hour] += count
 
     return hourly_counts
 
 
-def _build_hourly_section(
-    hourly_requests: Counter[datetime],
-) -> list[str]:
+def _build_hourly_section(hourly_requests: Counter[datetime],) -> list[str]:
 
     lines = [
         "Hourly Traffic",
@@ -121,42 +93,77 @@ def _build_hourly_section(
     return lines
 
 
-def _find_peak_hour(
-    hourly_requests: Counter[datetime],
-) -> tuple[datetime, int] | None:
+def _find_peak_hour(hourly_requests: Counter[datetime],) -> tuple[datetime, int] | None:
     if not hourly_requests:
         return None
 
-    return min(
-        hourly_requests.items(),
-        key=lambda item: (
-            -item[1],
-            item[0],
-        ),
-    )
+    return min(hourly_requests.items(), key=lambda item: (-item[1], item[0], ), )
 
 
-def _find_quiet_hour(
-    hourly_requests: Counter[datetime],
-) -> tuple[datetime, int] | None:
+def _find_quiet_hour(hourly_requests: Counter[datetime],) -> tuple[datetime, int] | None:
     if not hourly_requests:
         return None
 
-    return min(
-        hourly_requests.items(),
-        key=lambda item: (
-            item[1],
-            item[0],
-        ),
+    return min(hourly_requests.items(), key=lambda item: (item[1], item[0], ),)
+
+
+def _build_security_section(detections: DetectionResult,) -> list[str]:
+
+    lines = [
+        "Security Findings",
+        "-----------------",
+        "Suspicious Login Activity",
+    ]
+
+    if detections.suspicious_logins:
+        for finding in (
+            detections.suspicious_logins
+        ):
+            lines.append(
+                f"- {finding.ip}: "
+                f"{finding.failed_attempts:,} "
+                "failed /login attempts "
+                "(401)"
+            )
+    else:
+        lines.append(
+            "No suspicious login "
+            "activity detected."
+        )
+
+    lines.extend(
+        [
+            "",
+            "5xx Error Spikes",
+        ]
     )
+
+    if detections.server_error_spikes:
+        for spike in (
+            detections.server_error_spikes
+        ):
+            lines.append(
+                f"- {_format_hour(spike.hour)}: "
+                f"{spike.error_count:,}/"
+                f"{spike.total_requests:,} "
+                "requests "
+                f"({spike.error_rate_percent:.2f}%)"
+            )
+    else:
+        lines.append(
+            "No 5xx error spikes detected."
+        )
+
+    return lines
 
 
 def build_text_report(
     result: AnalysisResult,
     top_n: int = 10,
     execution_time: float = 0.0,
+    detections: DetectionResult | None = None,
 ) -> str:
-
+    
     lines = [
         "Log Analysis Report",
         "===================",
@@ -253,14 +260,24 @@ def build_text_report(
             ]
         )
 
+    if detections is not None:
+        lines.append("")
+
+        lines.extend(
+            _build_security_section(
+                detections
+            )
+        )
+    
     return "\n".join(lines)
 
 def build_json_report(
     result: AnalysisResult,
     top_n: int = 10,
     execution_time: float = 0.0,
+    detections: DetectionResult | None = None,
 ) -> str:
-
+    
     hourly_counts = _aggregate_by_hour(
         result.hourly_requests
     )
@@ -272,6 +289,9 @@ def build_json_report(
     quiet = _find_quiet_hour(
         result.hourly_requests
     )
+    
+    if detections is None:
+        detections = DetectionResult()
 
     payload = {
         "summary": {
@@ -346,6 +366,41 @@ def build_json_report(
                 "requests": quiet[1],
             }
         ),
+        "security_findings": {
+            "suspicious_logins": [
+                {
+                    "ip": finding.ip,
+                    "failed_attempts": (
+                        finding.failed_attempts
+                    ),
+                }
+                for finding
+                in detections.suspicious_logins
+            ],
+            "server_error_spikes": [
+                {
+                    "timestamp": (
+                        spike.hour.isoformat()
+                    ),
+                    "total_requests": (
+                        spike.total_requests
+                    ),
+                    "server_errors_5xx": (
+                        spike.error_count
+                    ),
+                    "error_rate_percent": round(
+                        spike.error_rate_percent,
+                        2,
+                    ),
+                    "baseline_rate_percent": round(
+                        spike.baseline_rate_percent,
+                        2,
+                    ),
+                }
+                for spike
+                in detections.server_error_spikes
+            ],
+        },
     }
 
     return json.dumps(

@@ -13,8 +13,4 @@ def open_log_file(path: Path) -> TextIO:
             errors="replace",
         )
 
-    return path.open(
-        mode="r",
-        encoding="utf-8",
-        errors="replace",
-    )
+    return path.open(mode="r", encoding="utf-8", errors="replace",)
