@@ -85,7 +85,7 @@ def _build_hourly_section(hourly_requests: Counter[datetime],) -> list[str]:
         bar = "█" * bar_length
 
         lines.append(
-            f"{hour:02d} "
+            f"{hour:02d} - "
             f"{bar:<{HISTOGRAM_WIDTH}} "
             f"{count:>10,}"
         )

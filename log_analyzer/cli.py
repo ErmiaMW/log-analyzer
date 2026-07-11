@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         dest="json_output",
         action="store_true",
-        help="Build a JSON format of  report.",
+        help="Save  a JSON report to  report.json",
         )
     
     parser.add_argument(
@@ -111,28 +111,13 @@ def main(argv: Sequence[str] | None = None,) -> int:
 
     start = perf_counter()
 
-    result = analyze_file(
-        args.log_file,
-        start_time=args.start_time,
-        end_time=args.end_time,
-    )
+    result = analyze_file(args.log_file, start_time=args.start_time, end_time=args.end_time, )
     
-    detections = detect_anomalies(
-        result,
-        login_failure_threshold=(args.login_threshold),
-        )
+    detections = detect_anomalies(result, login_failure_threshold=(args.login_threshold),)
 
     execution_time = perf_counter() - start
 
-    report = build_text_report(
-        result,
-        top_n=args.top,
-        execution_time=execution_time,
-        detections=detections,
-    )
-
-    print(report)
-
+    report = build_text_report(result, top_n=args.top, execution_time=execution_time, detections=detections,)
 
     if args.json_output:
         json_report = build_json_report(result, top_n=args.top, execution_time=execution_time, detections=detections,)
@@ -145,4 +130,7 @@ def main(argv: Sequence[str] | None = None,) -> int:
             f"\nJSON report saved to: "
             f"{output_path.resolve()}"
         )
+
+    print(report)    
+    
     return 0
